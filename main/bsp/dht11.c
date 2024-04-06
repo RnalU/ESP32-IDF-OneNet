@@ -117,14 +117,14 @@ void DHT11(float* data_list)
         }
         else
         {
-          Humi=100;
-          Temp=100;
+          Humi=-1;
+          Temp=-1;
         }
     }
     else //没用成功读取，返回0
     {
-    	Humi=0,
-    	Temp=0;
+    	Humi=-1,
+    	Temp=-1;
     }
  
     OutputHigh();

@@ -3,22 +3,86 @@
 
 #include "mqtt_client.h"
 #include "esp_log.h"
+#include "wifi.h"
+
+// 配置参数
+#define CONNECT_URI     "mqtt://mqtts.heclouds.com:1883"
+#define CLIENT_ID       "ESP32"
+#define USERNAME        "73K93SlK68"
+#define PASSWORD        "version=2018-10-31&res=products%2F73K93SlK68%2Fdevices%2FESP32&et=1743741951&method=sha1&sign=LHes2e7WlnBNUGKbFa%2F5XPAfQfw%3D"
+
+#define TOPIC_SUBSCRIBE_TRY_TIMES 10
+
+// 设备发布话题
+#define TOPIC_THING_POST "$sys/"USERNAME"/"CLIENT_ID"/thing/property/post"
+
+// 设备订阅话题
+#define TOPIC_THING_POST_REPLY "$sys/"USERNAME"/"CLIENT_ID"/thing/property/post/reply"
+
+// 初始化JSON模板 
+//IP地址 WIFI名称
+#define JSON_INIT_WIFI_DATA_TEMPLATE "{\
+\"id\": \"123\",\
+\"version\": \"1.0\",\
+\"params\": {\
+\"IPaddress\": {\
+\"value\": \"%s\",\
+\"time\": 1712217202000\
+},\
+\"WIFIName\": {\
+\"value\": \"%s\",\
+\"time\": 1712217202000}}}"\
+
+// 一氧化碳传感器状态 DHT11传感器状态 光传感器状态 声传感器状态
+#define JSON_INIT_SENSOR_STAGE_TEMPLATE "{\
+\"id\": \"123\",\
+\"version\": \"1.0\",\
+\"params\": {\"COSenseStage\": {\
+\"value\": %d,\
+\"time\": 1712217202000\
+},\
+\"DHT11Stage\": {\
+\"value\": %d,\
+\"time\": 1712217202000\
+},\
+\"LightSenseStage\": {\
+\"value\": %d,\
+\"time\": 1712217202000\
+},\
+\"SoundSenseStage\": {\
+\"value\": %d,\
+\"time\": 1712217202000}}}"
+
+// 温度值 湿度值 有害气体值 光值 声值
+#define JSON_SENSOR_DATA_TEMPLATE "{\
+\"id\": \"123\",\
+\"version\": \"1.0\",\
+\"params\": {\
+\"DHT11Temp\": {\
+\"value\": %.1f,\
+\"time\": 1712217202000\
+},\
+\"DHT11Himi\": {\
+\"value\": %.1f,\
+\"time\": 1712217202000\
+},\
+\"COValue\": {\
+\"value\": %lu,\
+\"time\": 1712217202000\
+},\
+\"LightValue\": {\
+\"value\": %lu,\
+\"time\": 1712217202000\
+},\
+\"SoundValue\": {\
+\"value\": %d,\
+\"time\": 1712217202000}}}"
 
 static const char *TAG_MQTT = "<MQTT-MASSAGE>";
 
-// MQTT配置结构体
-const esp_mqtt_client_config_t mqtt_config = {
-    .broker.address.uri = "mqtt://mqtts.heclouds.com:1883",
-    // .broker.address.hostname = "183.230.40.16",
-    // .broker.address.port = 8883,
-    // .broker.address.transport = MQTT_TRANSPORT_OVER_TCP,
-    .credentials.client_id = "ESP32",
-    .credentials.username = "73K93SlK68",
-    .credentials.authentication.password = "version=2018-10-31&res=products%2F73K93SlK68%2Fdevices%2FESP32&et=1743741951&method=sha1&sign=LHes2e7WlnBNUGKbFa%2F5XPAfQfw%3D",
-    .network.disable_auto_reconnect = false,
-    .session.keepalive = 10,
+struct Mqtt_Event_Flag {
+    uint8_t Post_Reply;
 };
-esp_mqtt_client_handle_t client;
 
 void user_mqtt_init(void);
 

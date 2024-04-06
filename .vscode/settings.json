@@ -54,6 +54,10 @@
         "event_groups.h": "c",
         "adc.h": "c",
         "stdio.h": "c",
-        "mqtt.h": "c"
+        "mqtt.h": "c",
+        "dht11.h": "c",
+        "sstream": "cpp",
+        "cstring": "cpp",
+        "cstdarg": "cpp"
     }
 }
