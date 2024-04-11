@@ -18,6 +18,7 @@
 #include "timer_setting.h"
 #include "mqtt.h"
 #include "wifi.h"
+#include "sound.h"
 
 static const char *TAG = "<MASSAGE>";
 
@@ -28,16 +29,29 @@ extern esp_mqtt_client_handle_t client_cb;
 
 // 数据变量
 static esp_adc_cal_characteristics_t *adc_chars;
+
+int wifi_start_flag = 0;
+int mqtt_start_flag = 0;
+
 QueueHandle_t queue = 0;
 float dht11_data_buff[2] = {0};
 uint32_t illum_voltage = 0;
 uint32_t harmful_gas_voltage = 0;
+int sound_satge = 0;
 
 void system_init(void)
 {
+    // PWM初始化
+    LedcInitConfig(600);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+
     // led 初始化
     LedGpioConfing();
     
+    // sound sensor初始化
+    sound_sensor_init();
+
     // ADC初始化
     adc1_config_width(ADC_WIDTH_BIT_12);
     adc1_config_channel_atten(ADC1_CHANNEL_0, ADC_ATTEN_DB_12);
@@ -46,11 +60,8 @@ void system_init(void)
     // 定时器初始化
     queue = timerInitConfig(1000000, 1000000);
     
-    // PWM初始化
-    LedcInitConfig(600);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
-    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-
+    beep_gpio_init_ok(5);
+    
     // NVS初始化
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) 
@@ -62,7 +73,7 @@ void system_init(void)
  
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
-    
+
     // MQTT初始化
     user_mqtt_init();
 
@@ -88,6 +99,13 @@ void app_main(void)
     
     while (1)
     {
+        if (mqtt_start_flag == 1 && wifi_start_flag == 1)
+        {
+            beep_all_init_ok(10);
+            mqtt_start_flag = 0;
+            wifi_start_flag = 0;
+        }
+
         // DHT11
         DHT11(dht11_data_buff);
 
@@ -99,8 +117,11 @@ void app_main(void)
         a1_ch3_raw_val = adc1_get_raw(ADC1_CHANNEL_2);
         harmful_gas_voltage = esp_adc_cal_raw_to_voltage(a1_ch3_raw_val, adc_chars);
 
+        // 声音传感器
+        sound_satge = sound_get_stage();
+
         // 输出传感器数值
-        printf("Temp:%.2f | Humi:%.2f | Illum:%lu | HarmfulGas:%lu \n", dht11_data_buff[0], dht11_data_buff[1], illum_voltage, harmful_gas_voltage);
+        printf("Temp:%.2f | Humi:%.2f | Illum:%lu | HarmfulGas:%lu | Sound:%d \n", dht11_data_buff[0], dht11_data_buff[1], illum_voltage, harmful_gas_voltage, sound_satge);
 
         if (led_flag == 0)
         {
@@ -116,10 +137,15 @@ void app_main(void)
         if (mqtt_event_flag.Post_Reply == 1)
         {
             // 向话题发布信息
-            sprintf(topic_json, JSON_SENSOR_DATA_TEMPLATE, dht11_data_buff[0], dht11_data_buff[1], harmful_gas_voltage, illum_voltage, 0);
+            sprintf(topic_json, JSON_SENSOR_DATA_TEMPLATE, dht11_data_buff[0], dht11_data_buff[1], harmful_gas_voltage, illum_voltage, sound_satge);
             main_msg_id = esp_mqtt_client_publish(client, TOPIC_THING_POST, topic_json, 0, 0, 0);
             if (main_msg_id >= 0) { ESP_LOGI(TAG_MQTT, "Send OK! Stage:%d", main_msg_id); }
             else { ESP_LOGI(TAG_MQTT, "Send Fail! Stage:%d", main_msg_id); }
+        }
+
+        if (harmful_gas_voltage > 250)
+        {
+            beep_harmful_gas_detected(1);
         }
 
         // 延迟

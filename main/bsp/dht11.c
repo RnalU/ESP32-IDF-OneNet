@@ -1,5 +1,6 @@
 #include "dht11.h"
 
+// 配置引脚
 #define DHT11_PIN 2
 
 typedef unsigned char uchar;

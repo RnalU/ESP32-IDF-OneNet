@@ -11,7 +11,7 @@
     "idf.openOcdConfigs": [
         "board/esp32s3-bridge.cfg"
     ],
-    "idf.portWin": "COM16",
+    "idf.portWin": "COM22",
     "idf.pythonBinPathWin": "d:\\ESP32_IDF\\.espressif\\python_env\\idf5.2_py3.11_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "d:\\ESP32_IDF\\.espressif",
     "MicroPython.executeButton": [
@@ -58,6 +58,7 @@
         "dht11.h": "c",
         "sstream": "cpp",
         "cstring": "cpp",
-        "cstdarg": "cpp"
+        "cstdarg": "cpp",
+        "esp_adc_cal.h": "c"
     }
 }

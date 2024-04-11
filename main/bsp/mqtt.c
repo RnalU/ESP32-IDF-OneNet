@@ -4,6 +4,9 @@ extern char ip_address[20];
 extern float dht11_data_buff[2];
 extern uint32_t illum_voltage;
 extern uint32_t harmful_gas_voltage;
+extern int mqtt_start_flag;
+
+int mqtt_disconnect_flag = 0;
 
 char topic_json[1000] = "";
 
@@ -48,26 +51,20 @@ void mqtt_init_convert_json(char* topic_list, const char* json_template, ...)
 
 void format_json(char* topic_list, const char* json_template, ...)
 {
-    // 初始化可变参数列表
     va_list args;
     va_start(args, json_template);
 
-    // 计算格式化后的字符串长度
     int len = vsnprintf(NULL, 0, json_template, args);
     va_end(args);
 
-    // 分配足够的空间来存储格式化后的字符串
     char* formatted_str = (char*)malloc((len + 1) * sizeof(char));
 
-    // 重新初始化可变参数列表
     va_start(args, json_template);
-    // 将可变参数按照JSON模板格式化到字符串中
+
     vsprintf(formatted_str, json_template, args);
     va_end(args);
 
-    // 将格式化后的字符串复制到topic_list字符数组中
     strcpy(topic_list, formatted_str);
-    // 释放分配的内存
     free(formatted_str);
 
     ESP_LOGI(TAG_MQTT, "JSON格式化完成:%s\n", topic_json);
@@ -91,11 +88,15 @@ esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
     // 通过事件ID来分别处理对应的事件
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:    // MQTT连上事件
+            mqtt_disconnect_flag = 0;
+            mqtt_start_flag = 1;
+            beep_mqtt_connected(5);
             ESP_LOGI(TAG_MQTT, "MQTT_EVENT_CONNECTED");
             ESP_LOGI(TAG_MQTT, "Subscribe OneNet Topic...");
             
             // 订阅 POST_Reply 话题，接收平台获取属性上报后返回的信息
-            msg_id = esp_mqtt_client_subscribe(client_cb, TOPIC_THING_POST_REPLY, 0);
+            msg_id = esp_mqtt_client_subscribe(client_cb, TOPIC_THING_POST_REPLY_AC, 0);
+            msg_id = esp_mqtt_client_subscribe(client_cb, TOPIC_THING_POST_REPLY_RJ, 0);
             if (msg_id > 0) 
             { 
                 ESP_LOGI(TAG_MQTT, "sent subscribe successful, msg_id=%d", msg_id); 
@@ -107,7 +108,9 @@ esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
                 ESP_LOGI(TAG_MQTT, "sent subscribe fail! Retry..., msg_id=%d", msg_id); 
                 while (times++ < TOPIC_SUBSCRIBE_TRY_TIMES)
                 {
-                    msg_id = esp_mqtt_client_subscribe(client_cb, TOPIC_THING_POST_REPLY, 0);
+                    msg_id = esp_mqtt_client_subscribe(client_cb, TOPIC_THING_POST_REPLY_AC, 0);
+                    msg_id = esp_mqtt_client_subscribe(client_cb, TOPIC_THING_POST_REPLY_RJ, 0);
+
                     vTaskDelay(200 / portTICK_PERIOD_MS);
                     ESP_LOGI(TAG_MQTT, "sent subscribe fail! Retry %d...", times);
                     if (msg_id > 0)
@@ -119,23 +122,26 @@ esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
                 }
             }
 
+
             // 向属性话题发布信息
-            // sprintf(topic_json, JSON_INIT_WIFI_DATA_TEMPLATE, ip_address, EXAMPLE_ESP_WIFI_SSID);
-            // ESP_LOGI(TAG_MQTT, "WIFI-JSON格式化完成:%s\n", topic_json);
+            sprintf(topic_json, JSON_INIT_WIFI_DATA_TEMPLATE, ip_address, EXAMPLE_ESP_WIFI_SSID);
+            ESP_LOGI(TAG_MQTT, "WIFI-JSON格式化完成:%s\n", topic_json);
 
-            format_json(topic_json, JSON_INIT_WIFI_DATA_TEMPLATE, ip_address, EXAMPLE_ESP_WIFI_SSID);
+            // format_json(topic_json, JSON_INIT_WIFI_DATA_TEMPLATE, ip_address, EXAMPLE_ESP_WIFI_SSID);
             esp_mqtt_client_publish(client_cb, TOPIC_THING_POST, topic_json, 0, 0, 0);
 
-            // sprintf(topic_json, JSON_INIT_SENSOR_STAGE_TEMPLATE, 0, 0, 0, 1);
-            // ESP_LOGI(TAG_MQTT, "SENSOR-JSON格式化完成:%s\n", topic_json);
+            sprintf(topic_json, JSON_INIT_SENSOR_STAGE_TEMPLATE, 0, 0, 0, 0);
+            ESP_LOGI(TAG_MQTT, "SENSOR-JSON格式化完成:%s\n", topic_json);
 
-            format_json(topic_json, JSON_INIT_SENSOR_STAGE_TEMPLATE, 0, 0, 0, 1);
+            // format_json(topic_json, JSON_INIT_SENSOR_STAGE_TEMPLATE, 0, 0, 0, 0);
             esp_mqtt_client_publish(client_cb, TOPIC_THING_POST, topic_json, 0, 0, 0);
-
+            
             break;
 
         case MQTT_EVENT_DISCONNECTED:    // MQTT断开连接事件
             ESP_LOGI(TAG_MQTT, "MQTT_EVENT_DISCONNECTED");
+            mqtt_disconnect_flag = 1;
+            beep_mqtt_disconnected(5);
             break;
 
         case MQTT_EVENT_SUBSCRIBED:    // MQTT发送订阅成功事件
@@ -162,6 +168,7 @@ esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event)
 
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG_MQTT, "MQTT_EVENT_ERROR");
+            mqtt_disconnect_flag = 1;
             break;
 
         default:

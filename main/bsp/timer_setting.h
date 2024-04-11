@@ -26,4 +26,20 @@ struct DataList{
 void LedcInitConfig(uint16_t freq);
 int pwm_duty(int duty);
 
+void beep(int fre, int duty, int time, int sound_val);
+
+void beep_all_init_ok(int sound_val);
+
+void beep_gpio_init_ok(int sound_val);
+
+void beep_wifi_connected(int sound_val);
+
+void beep_mqtt_connected(int sound_val);
+
+void beep_wifi_disconnected(int sound_val);
+
+void beep_mqtt_disconnected(int sound_val);
+
+void beep_harmful_gas_detected(int sound_val);
+
 #endif

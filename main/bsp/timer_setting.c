@@ -85,3 +85,59 @@ void LedcInitConfig(uint16_t freq)
     };
     ledc_channel_config(&ledc_channel);
 }
+
+void beep(int fre, int duty, int time, int sleep)
+{
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+
+    ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_0, fre);
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+
+    vTaskDelay(time / portTICK_PERIOD_MS);
+
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+
+    vTaskDelay(sleep / portTICK_PERIOD_MS);
+}
+
+void beep_all_init_ok(int sound_val)
+{
+    beep(1046.50, sound_val, 50, 50);
+    beep(1318.51, sound_val, 50, 50);
+    beep(1567.98, sound_val, 50, 50);
+}
+
+void beep_gpio_init_ok(int sound_val)
+{
+    beep(523, sound_val, 120, 100);
+}
+
+void beep_wifi_connected(int sound_val)
+{
+    beep(659, sound_val, 120, 100);
+}
+
+void beep_mqtt_connected(int sound_val)
+{
+    beep(784, sound_val, 120, 500);
+}
+
+void beep_wifi_disconnected(int sound_val)
+{
+    for (int i = 0; i < 3; i++)
+        beep(1046, sound_val, 200, 50);
+}
+
+void beep_mqtt_disconnected(int sound_val)
+{
+        beep(1046, sound_val, 300, 50);
+}
+
+void beep_harmful_gas_detected(int sound_val)
+{
+    for (int i = 0; i < 3; i++)
+        beep(1568, sound_val, 50, 50);
+}

@@ -1,6 +1,7 @@
 #include "wifi.h"
 
 char ip_address[20] = "";
+extern int wifi_start_flag;
 
 EventGroupHandle_t s_wifi_event_group;
 
@@ -92,11 +93,14 @@ void wifi_init_sta(void)
     {
         ESP_LOGI(TAG_W, "connected to ap SSID:%s password:%s",
                  EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+        wifi_start_flag = 1;
+        beep_wifi_connected(5);
     } 
     else if (bits & WIFI_FAIL_BIT) 
     {
         ESP_LOGI(TAG_W, "Failed to connect to SSID:%s, password:%s",
                  EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+        beep_wifi_disconnected(5);
     } 
     else 
     {
